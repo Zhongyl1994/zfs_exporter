@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	defaultPoolProps = `allocated,dedupratio,fragmentation,free,freeing,health,leaked,readonly,size`
+	defaultPoolProps   = `allocated,dedupratio,fragmentation,free,freeing,health,leaked,readonly,size`
+	defaultPoolIostats = `opread,opwrite,bwread,bwwrite`
 )
 
 var (
@@ -105,15 +106,45 @@ var (
 				transformNumeric,
 				poolLabels...,
 			),
+			`opread`: newProperty(
+				subsystemPool,
+				`operations_read`,
+				`Displays logical I/O statistics for the given pools, Read IOPS`,
+				transformNumeric,
+				poolLabels...,
+			),
+			`opwrite`: newProperty(
+				subsystemPool,
+				`operations_write`,
+				`Displays logical I/O statistics for the given pools, Write IOPS`,
+				transformNumeric,
+				poolLabels...,
+			),
+			`bwread`: newProperty(
+				subsystemPool,
+				`bandwidth_read`,
+				`Displays logical I/O statistics for the given pools, Read Bandwidth`,
+				transformNumeric,
+				poolLabels...,
+			),
+			`bwwrite`: newProperty(
+				subsystemPool,
+				`bandwidth_write`,
+				`Displays logical I/O statistics for the given pools, Write Bandwidth`,
+				transformNumeric,
+				poolLabels...,
+			),
 		},
 	}
 )
 
 func init() {
-	registerCollector(`pool`, defaultEnabled, defaultPoolProps, newPoolCollector)
+	registerCollector(`pool`, defaultEnabled, defaultPoolProps, newPoolPropertiesCollector)
+	registerCollector(`pool-iostat`, defaultEnabled, defaultPoolIostats, newPoolIostatCollector)
 }
 
 type poolCollector struct {
+	kind   zfs.PoolKind
 	log    log.Logger
 	client zfs.Client
 	props  []string
@@ -153,7 +184,7 @@ func (c *poolCollector) update(ch chan<- metric, pools []string, excludes regexp
 }
 
 func (c *poolCollector) updatePoolMetrics(ch chan<- metric, pool string) error {
-	p := c.client.Pool(pool)
+	p := c.client.Pool(pool, c.kind)
 	props, err := p.Properties(c.props...)
 	if err != nil {
 		return err
@@ -173,6 +204,19 @@ func (c *poolCollector) updatePoolMetrics(ch chan<- metric, pool string) error {
 	return nil
 }
 
-func newPoolCollector(l log.Logger, c zfs.Client, props []string) (Collector, error) {
-	return &poolCollector{log: l, client: c, props: props}, nil
+func newPoolCollector(kind zfs.PoolKind, l log.Logger, c zfs.Client, props []string) (Collector, error) {
+	switch kind {
+	case zfs.PoolProps, zfs.PoolIostat:
+	default:
+		return nil, fmt.Errorf("unknown pool type: %s", kind)
+	}
+	return &poolCollector{kind: kind, log: l, client: c, props: props}, nil
+}
+
+func newPoolPropertiesCollector(l log.Logger, c zfs.Client, props []string) (Collector, error) {
+	return newPoolCollector(zfs.PoolProps, l, c, props)
+}
+
+func newPoolIostatCollector(l log.Logger, c zfs.Client, props []string) (Collector, error) {
+	return newPoolCollector(zfs.PoolIostat, l, c, props)
 }

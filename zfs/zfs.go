@@ -15,13 +15,14 @@ var (
 // Client is the primary entrypoint
 type Client interface {
 	PoolNames() ([]string, error)
-	Pool(name string) Pool
+	Pool(name string, kind PoolKind) Pool
 	Datasets(pool string, kind DatasetKind) Datasets
 }
 
 // Pool allows querying pool properties
 type Pool interface {
 	Name() string
+	Kind() PoolKind
 	Properties(props ...string) (PoolProperties, error)
 }
 
@@ -44,6 +45,7 @@ type DatasetProperties interface {
 }
 
 type handler interface {
+	getFieldsPerRecord() int
 	processLine(pool string, line []string) error
 }
 
@@ -54,8 +56,8 @@ func (z clientImpl) PoolNames() ([]string, error) {
 	return poolNames()
 }
 
-func (z clientImpl) Pool(name string) Pool {
-	return newPoolImpl(name)
+func (z clientImpl) Pool(name string, kind PoolKind) Pool {
+	return newPoolImpl(name, kind)
 }
 
 func (z clientImpl) Datasets(pool string, kind DatasetKind) Datasets {
@@ -73,7 +75,7 @@ func execute(pool string, h handler, cmd string, args ...string) error {
 	r.Comma = '\t'
 	r.LazyQuotes = true
 	r.ReuseRecord = true
-	r.FieldsPerRecord = 3
+	r.FieldsPerRecord = h.getFieldsPerRecord()
 
 	if err = c.Start(); err != nil {
 		return err

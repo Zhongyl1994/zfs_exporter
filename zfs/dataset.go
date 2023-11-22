@@ -67,6 +67,10 @@ func (h *datasetHandler) processLine(pool string, line []string) error {
 	return nil
 }
 
+func (h *datasetHandler) getFieldsPerRecord() int {
+	return 3
+}
+
 func (h *datasetHandler) datasets() []DatasetProperties {
 	result := make([]DatasetProperties, len(h.store))
 	i := 0

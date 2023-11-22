@@ -75,6 +75,12 @@ type property struct {
 	transform transformFunc
 }
 
+type iostat struct {
+	name      string
+	desc      *prometheus.Desc
+	transform transformFunc
+}
+
 func (p property) push(ch chan<- metric, value string, labelValues ...string) error {
 	v, err := p.transform(value)
 	if err != nil {
@@ -97,6 +103,12 @@ type propertyStore struct {
 	defaultSubsystem string
 	defaultLabels    []string
 	store            map[string]property
+}
+
+type iostatStore struct {
+	defaultSubsystem string
+	defaultLabels    []string
+	store            map[string]iostat
 }
 
 func (p *propertyStore) find(name string) (property, error) {
